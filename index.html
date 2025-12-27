@@ -1,1 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feuille de Temps – Mensuelle (totaux)</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0}
+.app{max-width:1150px;margin:auto;background:#fff;min-height:100vh}
+header{background:#2c3e50;color:#fff;padding:16px}
+section{padding:20px}
+h2{border-bottom:3px solid #3498db;padding-bottom:6px}
+label{font-weight:bold;margin-right:8px}
+select,input{padding:6px;margin-right:10px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ccc;padding:6px;text-align:center;font-size:14px}
+th{background:#ecf0f1}
+.closed{background:#e0e0e0}
+.ferie{background:#efe1ff}
+.validated{background:#d4edda}
+tfoot td{font-weight:bold;background:#fafafa}
+button{padding:10px 16px;font-weight:bold;border:none;border-radius:6px;cursor:pointer}
+.btn-submit{background:#3498db;color:#fff}
+.btn-validate{background:#27ae60;color:#fff}
+.cp{background:#dff0d8}
+.maladie{background:#f2dede}
+.absence{background:#fcf8e3}
+.cfa{background:#d9edf7}
+.repos{background:#eeeeee;color:#555}
+</style>
 
+  <!-- PWA Boulangerie des Merveilles -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#8BC34A">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  
+function enterEmployee(){
+ document.getElementById("homeScreen").style.display="none";
+ document.getElementById("appContent").style.display="block";
+ document.getElementById("managerSection").style.display="none";
+}
+
+function enterManager(){
+ const code = prompt("Code manager");
+ if(code!=="BDM2026"){
+   alert("Accès refusé");
+   return;
+ }
+ document.getElementById("homeScreen").style.display="none";
+ document.getElementById("appContent").style.display="block";
+ document.getElementById("managerSection").style.display="block";
+}
+
+
+function exportEmployeePDF(){
+  const emp = document.getElementById("employee").value;
+  const month = document.getElementById("month").value;
+  if(!month){ alert("Sélectionnez le mois"); return; }
+  alert("PDF récapitulatif salarié prêt à être enregistré / imprimé");
+  window.print();
+}
+
+
+// Notification feuille validée
+function notifyEmployeeValidated(){
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    new Notification("🥖 Boulangerie des Merveilles", {
+      body: "Votre feuille de temps mensuelle a été validée par le manager ✅",
+      icon: "icon-192.png"
+    });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(p => {
+      if (p === "granted") notifyEmployeeValidated();
+    });
+  }
+}
+
+
+// 🔔 Rappel feuille non remplie & 📅 notification fin de mois
+function scheduleReminders(){
+  if (!("Notification" in window)) return;
+
+  function notify(msg){
+    if (Notification.permission === "granted") {
+      new Notification("🥖 Boulangerie des Merveilles", {
+        body: msg,
+        icon: "icon-192.png"
+      });
+    }
+  }
+
+  const today = new Date();
+  const day = today.getDate();
+  const lastDay = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+
+  // Rappel feuille non remplie à partir du 25
+  if (day >= 25 && !submitted){
+    notify("⏰ Pensez à remplir votre feuille de temps mensuelle.");
+  }
+
+  // Notification automatique fin de mois (dernier jour)
+  if (day === lastDay){
+    notify("📅 Fin de mois : merci de compléter et signer votre feuille de temps.");
+  }
+}
+
+// Lancer les rappels à l’ouverture de l’app
+window.addEventListener("load", () => {
+  if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(() => scheduleReminders());
+  } else {
+    scheduleReminders();
+  }
+});
+
+</script>
+
+</head>
+<body>
+<div class="app">
+
+<div id="homeScreen" style="padding:30px;text-align:center">
+  <h1>🥖 Boulangerie des Merveilles</h1>
+  <p style="font-size:18px">Feuille de temps mensuelle</p>
+  <button style="padding:14px 20px;margin:10px;font-size:18px"
+    onclick="enterEmployee()">👷 Accès salarié</button>
+  <button style="padding:14px 20px;margin:10px;font-size:18px"
+    onclick="enterManager()">👩‍💼 Accès manager</button>
+</div>
+
+<header id="appContent" style="display:none">
+<h1>🥖 Boulangerie des Merveilles – Feuille de Temps Mensuelle ✨</h1>
+</header>
+
+<section>
+<label>Salarié :</label>
+<select id="employee">
+<option>IBANEZ</option><option>CARLETTO</option><option>ANTONINI</option>
+<option>LELEU MAEL</option><option>LELEU MAEVA</option><option>WLOCH</option><option>COLTEL SYLVIE</option>
+</select>
+
+<label>Mois :</label>
+<input type="month" id="month" onchange="generateMonth()">
+</section>
+
+<section>
+<h2>Mois sélectionné</h2>
+<table id="table">
+<thead>
+<tr>
+<th>Date</th>
+<th>Jour</th>
+<th>Horaire</th>
+<th>Heures sup</th>
+<th>Férié</th>
+<th>Acompte €</th>
+<th>Heures jour</th>
+</tr>
+</thead>
+<tbody></tbody>
+<tfoot>
+<tr>
+<td colspan="6">TOTAL HEURES DU MOIS</td>
+<td id="totalHours">0h00</td>
+</tr>
+</tfoot>
+</table>
+</section>
+
+<section>
+<h2>✍️ Signature salarié</h2>
+<canvas id="sig" width="350" height="120" style="border:1px solid #ccc"></canvas><br>
+<button onclick="clearSig()">Effacer</button>
+</section>
+
+<section>
+<button class="btn-submit" style="background:#8BC34A;color:#1B5E20" onclick="submit()">📤 Soumettre la feuille mensuelle</button>
+</section>
+
+<hr>
+
+<section id="managerSection" style="display:none">
+<h2>👩‍💼 Validation manager</h2>
+<button class="btn-validate" style="background:#4CAF50;color:#ffffff" onclick="validateMonth()">✅ Valider le mois</button>
+<button class="btn-submit" style="background:#8BC34A;color:#1B5E20" style="margin-left:10px" onclick="exportPDF()">🧾 PDF mensuel signé</button>
+<button class="btn-submit" style="background:#8BC34A;color:#1B5E20" style="margin-left:10px" onclick="archiveMonth()">🔐 Archiver 5 ans</button>
+<button class="btn-submit" style="background:#8BC34A;color:#1B5E20" style="margin-left:10px" onclick="exportCSV()">📊 Export CSV paie</button>
+<p id="validationStatus"></p>
+</section>
+
+</div>
+
+<script>
+const schedules={
+ "REPOS":0,
+ "CONGÉS PAYÉS":0,
+ "ARRÊT MALADIE":0,
+ "ABSENCE":0,
+ "CFA (apprenti)":7,
+ "—":0,
+ "06h00-13h00":7,
+ "06h30-13h30":7,
+ "07h00-14h00":7,
+ "05h00-12h00":7,
+ "13h00-20h00":7,
+ "13h00-16h00":3,
+ "21h00-05h00":8
+};
+const holidays=["01-01","01-05","08-05","14-07","15-08","01-11","11-11","25-12"];
+const days=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+let submitted=false;
+
+function generateMonth(){
+ const val=document.getElementById("month").value;
+ if(!val) return;
+ const [y,m]=val.split("-");
+ const year=parseInt(y), month=parseInt(m);
+ const daysInMonth=new Date(year,month,0).getDate();
+ const tbody=document.querySelector("#table tbody");
+ tbody.innerHTML="";
+ for(let d=1;d<=daysInMonth;d++){
+  const date=new Date(year,month-1,d);
+  const dayIndex=date.getDay();
+  const dayName=days[dayIndex];
+  const md=String(d).padStart(2,"0")+"-"+String(month).padStart(2,"0");
+  const isHoliday=holidays.includes(md);
+  const tr=document.createElement("tr");
+  if(dayIndex===3||dayIndex===4) tr.classList.add("closed"); // mercredi & jeudi fermés mais saisissables
+  if(isHoliday) tr.classList.add("ferie");
+  tr.innerHTML=`
+   <td>${String(d).padStart(2,"0")}/${String(month).padStart(2,"0")}/${year}</td>
+   <td>${dayName}</td>
+   <td>
+     <select onchange="applyRowType(this)">
+       ${Object.keys(schedules).map(h=>`<option>${h}</option>`).join("")}
+     </select>
+   </td>
+   <td><input type="number" step="0.5" value="0" onchange="recalc(this)"></td>
+   <td>${isHoliday?"Oui":"Non"}</td>
+   <td><input type="number" step="0.01"></td>
+   <td class="dayHours">0h00</td>`;
+  tbody.appendChild(tr);
+ }
+ recalcTotal();
+}
+
+
+function applyRowType(select){
+ const tr=select.closest("tr");
+ tr.classList.remove("cp","maladie","absence","cfa");
+ const val=select.value;
+ if(val==="CONGÉS PAYÉS") tr.classList.add("cp");
+ if(val==="ARRÊT MALADIE") tr.classList.add("maladie");
+ if(val==="ABSENCE") tr.classList.add("absence");
+ if(val==="CFA (apprenti)") tr.classList.add("cfa");
+ if(val==="REPOS") tr.classList.add("repos");
+ recalc(select);
+}
+
+function recalc(el){
+ const tr=el.closest("tr");
+ const schedule=tr.querySelector("select").value;
+ const extra=parseFloat(tr.querySelector("input[type=number]").value||0);
+ const base=schedules[schedule]||0;
+ const total=base+extra;
+ tr.querySelector(".dayHours").textContent=format(total*60);
+ recalcTotal();
+}
+
+function recalcTotal(){
+ let min=0;
+ document.querySelectorAll(".dayHours").forEach(td=>{
+  const t=td.textContent;
+  if(t.includes("h")){
+   const [h,m]=t.replace("h"," ").split(" ");
+   min+=parseInt(h)*60+parseInt(m||0);
+  }
+ });
+ document.getElementById("totalHours").textContent=format(min);
+}
+
+function format(min){
+ const h=Math.floor(min/60);
+ const m=min%60;
+ return `${h}h${m.toString().padStart(2,"0")}`;
+}
+
+const canvas=document.getElementById("sig");
+const ctx=canvas.getContext("2d");
+let draw=false;
+canvas.onmousedown=()=>draw=true;
+canvas.onmouseup=()=>draw=false;
+canvas.onmousemove=e=>{
+ if(!draw) return;
+ ctx.lineWidth=2;ctx.strokeStyle="#000";
+ ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
+}
+function clearSig(){ctx.clearRect(0,0,canvas.width,canvas.height)}
+
+function submit(){
+ if(canvas.toDataURL().length<200){alert("Signature obligatoire");return;}
+ submitted=true;
+ alert("Feuille mensuelle transmise au manager");
+}
+
+function validateMonth(){
+ if(!submitted){alert("La feuille doit être soumise par le salarié");return;}
+ document.querySelectorAll("#table tbody tr").forEach(tr=>tr.classList.add("validated"));
+ document.getElementById("validationStatus").textContent="✅ Mois validé par le manager";
+ notifyEmployeeValidated();
+}
+
+
+// Marquage CFA distinct pour export
+function isCFA(tr){
+ const val = tr.querySelector("select").value;
+ return val === "CFA (apprenti)";
+}
+
+function exportCSV(){
+ if(!submitted){
+   alert("Export réservé au manager après validation");
+   return;
+ }
+ let csv = "Salarié;Mois;Date;Jour;Type jour;Horaire;Heures sup;Férié;Acompte;Heures jour\n";
+ const emp=document.getElementById("employee").value;
+ const month=document.getElementById("month").value;
+ document.querySelectorAll("#table tbody tr").forEach(tr=>{
+   const cols=tr.querySelectorAll("td");
+   const date=cols[0].innerText;
+   const jour=cols[1].innerText;
+   const horaire=cols[2].querySelector("select").value;
+   const hs=cols[3].querySelector("input").value;
+   const ferie=cols[4].innerText;
+   const acompte=cols[5].querySelector("input").value||0;
+   const heures=cols[6].innerText;
+   if(horaire!=="—"){
+     const typeJour = horaire==="REPOS" ? "REPOS" : (isCFA(tr) ? "CFA" : (horaire==="CONGÉS PAYÉS"?"CP":(horaire==="ARRÊT MALADIE"?"MALADIE":(horaire==="ABSENCE"?"ABSENCE":"TRAVAIL"))));
+     csv+=`${emp};${month};${date};${jour};${typeJour};${horaire};${hs};${ferie};${acompte};${heures}\n`;
+   }
+ });
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+ const link=document.createElement("a");
+ link.href=URL.createObjectURL(blob);
+ link.download=`PAIE_${emp}_${month}.csv`;
+ link.click();
+}
+
+
+function exportPDF(){
+ if(!submitted){
+   alert("PDF réservé après validation manager");
+   return;
+ }
+ window.print();
+}
+
+function archiveMonth(){
+ if(!submitted){
+   alert("Valider le mois avant archivage");
+   return;
+ }
+ const archive = {
+   employee: document.getElementById("employee").value,
+   month: document.getElementById("month").value,
+   archivedAt: new Date().toISOString(),
+   retentionUntil: new Date(new Date().setFullYear(new Date().getFullYear()+5)).toISOString()
+ };
+ localStorage.setItem(
+   "ARCHIVE_"+archive.employee+"_"+archive.month,
+   JSON.stringify(archive)
+ );
+ alert("Mois archivé pour 5 ans (preuve légale)");
+}
+
+
+function enterEmployee(){
+ document.getElementById("homeScreen").style.display="none";
+ document.getElementById("appContent").style.display="block";
+ document.getElementById("managerSection").style.display="none";
+}
+
+function enterManager(){
+ const code = prompt("Code manager");
+ if(code!=="BDM2026"){
+   alert("Accès refusé");
+   return;
+ }
+ document.getElementById("homeScreen").style.display="none";
+ document.getElementById("appContent").style.display="block";
+ document.getElementById("managerSection").style.display="block";
+}
+
+
+function exportEmployeePDF(){
+  const emp = document.getElementById("employee").value;
+  const month = document.getElementById("month").value;
+  if(!month){ alert("Sélectionnez le mois"); return; }
+  alert("PDF récapitulatif salarié prêt à être enregistré / imprimé");
+  window.print();
+}
+
+
+// Notification feuille validée
+function notifyEmployeeValidated(){
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    new Notification("🥖 Boulangerie des Merveilles", {
+      body: "Votre feuille de temps mensuelle a été validée par le manager ✅",
+      icon: "icon-192.png"
+    });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(p => {
+      if (p === "granted") notifyEmployeeValidated();
+    });
+  }
+}
+
+
+// 🔔 Rappel feuille non remplie & 📅 notification fin de mois
+function scheduleReminders(){
+  if (!("Notification" in window)) return;
+
+  function notify(msg){
+    if (Notification.permission === "granted") {
+      new Notification("🥖 Boulangerie des Merveilles", {
+        body: msg,
+        icon: "icon-192.png"
+      });
+    }
+  }
+
+  const today = new Date();
+  const day = today.getDate();
+  const lastDay = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+
+  // Rappel feuille non remplie à partir du 25
+  if (day >= 25 && !submitted){
+    notify("⏰ Pensez à remplir votre feuille de temps mensuelle.");
+  }
+
+  // Notification automatique fin de mois (dernier jour)
+  if (day === lastDay){
+    notify("📅 Fin de mois : merci de compléter et signer votre feuille de temps.");
+  }
+}
+
+// Lancer les rappels à l’ouverture de l’app
+window.addEventListener("load", () => {
+  if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(() => scheduleReminders());
+  } else {
+    scheduleReminders();
+  }
+});
+
+</script>
+</body>
+</html>
